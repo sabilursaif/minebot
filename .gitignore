@@ -1,0 +1,30 @@
+# Node.js
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and runtime data
+logs/
+*.log
+saves.json
+
+# ViaProxy generated runtime files
+jars/
+plugins/
+viabedrock/
+viaaprilfools.yml
+viabackwards.yml
+viabedrock.yml
+vialegacy.yml
+viaproxy.yml
+viarewind.yml
+viaversion.yml
+
+# ViaProxy binary and generated files
+tools/viaproxy/*.jar
+tools/viaproxy/viaproxy.yml
+tools/viaproxy/via*.yml
+tools/viaproxy/saves.json
