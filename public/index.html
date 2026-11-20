@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="description" content="MineBot server monitoring dashboard">
+  <title>MineBot — Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main id="login-view" class="login-layout">
+    <section class="login-card">
+      <div class="brand brand-login">
+        <div class="brand-mark"><span></span><span></span><span></span></div>
+        <span>Mine<span class="brand-accent">Bot</span></span>
+      </div>
+
+      <div class="login-copy">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> PRIVATE CONTROL PANEL</div>
+        <h1>Welcome back.</h1>
+        <p>Sign in to monitor your Minecraft AFK bot.</p>
+      </div>
+
+      <form id="login-form" class="login-form">
+        <label for="password">Dashboard password</label>
+        <div class="password-wrap">
+          <input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+            maxlength="128"
+          >
+          <button id="toggle-password" class="input-action" type="button" aria-label="Show password">
+            <span class="eye-icon"></span>
+          </button>
+        </div>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <button id="login-button" class="primary-button login-button" type="submit">
+          <span>Sign in</span><span class="button-arrow">→</span>
+        </button>
+      </form>
+
+      <div class="login-foot">
+        <span class="lock-icon"></span>
+        Private dashboard · Authenticated access
+      </div>
+    </section>
+  </main>
+
+  <main id="dashboard-view" class="dashboard" hidden>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="MineBot dashboard">
+        <div class="brand-mark"><span></span><span></span><span></span></div>
+        <span>Mine<span class="brand-accent">Bot</span></span>
+      </a>
+
+      <div class="topbar-actions">
+        <div id="live-indicator" class="live-indicator">
+          <span class="live-dot"></span>
+          <span id="live-label">Connecting</span>
+        </div>
+        <button id="logout-button" class="logout-button" type="button">
+          <span class="logout-icon">↗</span> Log out
+        </button>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow">SERVER OVERVIEW</div>
+          <h1>Dashboard</h1>
+          <p class="page-subtitle">Your AFK bot, at a glance.</p>
+        </div>
+        <div id="status-pill" class="status-pill status-connecting">
+          <span class="status-dot"></span>
+          <span id="status-label">Connecting</span>
+        </div>
+      </section>
+
+      <section class="hero-panel">
+        <div class="hero-main">
+          <div class="hero-icon"><span class="hero-cube"></span></div>
+          <div class="hero-text">
+            <div class="hero-kicker">CURRENT BOT</div>
+            <h2 id="bot-name">MineBot</h2>
+            <p id="bot-subtitle">Waiting for connection details…</p>
+          </div>
+        </div>
+        <div class="hero-divider"></div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">SESSION UPTIME</span>
+          <strong id="hero-uptime">—</strong>
+          <span class="hero-stat-note">Current connection</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">TOTAL RECONNECTS</span>
+          <strong id="hero-reconnects">0</strong>
+          <span class="hero-stat-note">Since this process started</span>
+        </div>
+      </section>
+
+      <section class="panel control-panel">
+        <div class="control-heading"><div><h2>Bot controls</h2><p>Manage the Minecraft connection</p></div></div>
+        <div class="control-actions">
+          <button id="connect-button" class="control-button control-connect" type="button">Connect</button>
+          <button id="disconnect-button" class="control-button control-disconnect" type="button">Disconnect</button>
+          <button id="reconnect-button" class="control-button control-reconnect" type="button">Reconnect</button>
+        </div>
+        <p id="control-message" class="control-message" role="status" hidden></p>
+      </section>
+
+      <section class="section-heading">
+        <div>
+          <h2>Live statistics</h2>
+          <p>Updated as the bot reports new data.</p>
+        </div>
+        <span id="last-updated" class="muted-label">Waiting for data</span>
+      </section>
+
+      <section class="metric-grid">
+        <article class="metric-card">
+          <div class="metric-top">
+            <span class="metric-label">HEALTH</span>
+            <span class="metric-icon health-icon">＋</span>
+          </div>
+          <div class="metric-value"><strong id="health-value">—</strong><span>/ 20</span></div>
+          <div class="meter"><div id="health-bar" class="meter-fill health-fill"></div></div>
+          <p id="health-note" class="metric-note">Waiting for player data</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-top">
+            <span class="metric-label">HUNGER</span>
+            <span class="metric-icon food-icon">◈</span>
+          </div>
+          <div class="metric-value"><strong id="food-value">—</strong><span>/ 20</span></div>
+          <div class="meter"><div id="food-bar" class="meter-fill food-fill"></div></div>
+          <p id="food-note" class="metric-note">Food saturation: —</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-top">
+            <span class="metric-label">DEATHS</span>
+            <span class="metric-icon death-icon">†</span>
+          </div>
+          <div class="metric-value"><strong id="death-value">0</strong></div>
+          <p id="death-note" class="metric-note">No deaths recorded</p>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-top">
+            <span class="metric-label">RECONNECT ATTEMPTS</span>
+            <span class="metric-icon reconnect-icon">↻</span>
+          </div>
+          <div class="metric-value"><strong id="attempt-value">0</strong></div>
+          <p id="attempt-note" class="metric-note">No active retry attempts</p>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel location-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>In-game location</h2>
+              <p>Current player position and dimension</p>
+            </div>
+            <span class="panel-symbol">⌖</span>
+          </div>
+
+          <div class="coordinate-grid">
+            <div class="coordinate">
+              <span>X</span>
+              <strong id="position-x">—</strong>
+            </div>
+            <div class="coordinate">
+              <span>Y</span>
+              <strong id="position-y">—</strong>
+            </div>
+            <div class="coordinate">
+              <span>Z</span>
+              <strong id="position-z">—</strong>
+            </div>
+          </div>
+
+          <div class="dimension-row">
+            <span class="dimension-label">DIMENSION</span>
+            <span id="dimension-value" class="dimension-value">—</span>
+          </div>
+        </article>
+
+        <article class="panel connection-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Connection details</h2>
+              <p>Current session configuration</p>
+            </div>
+            <span class="panel-symbol">⌁</span>
+          </div>
+
+          <div class="detail-list">
+            <div class="detail-row"><span>Username</span><strong id="detail-username">—</strong></div>
+            <div class="detail-row"><span>Client version</span><strong id="detail-version">—</strong></div>
+            <div class="detail-row"><span>Proxy address</span><strong id="detail-proxy">—</strong></div>
+            <div class="detail-row"><span>Last disconnect</span><strong id="detail-disconnect">—</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel behavior-panel">
+        <div class="behavior-icon"><span>⌖</span></div>
+        <div>
+          <h3>Stationary AFK mode</h3>
+          <p>MineBot does not walk, jump, rotate, attack, mine, place blocks, or interact with the world.</p>
+        </div>
+        <span class="behavior-badge"><span></span> Passive</span>
+      </section>
+
+      <section class="panel logs-panel">
+        <div class="panel-heading logs-heading">
+          <div>
+            <h2>Activity log</h2>
+            <p>Live connection events and diagnostic messages</p>
+          </div>
+          <span class="log-live"><span></span> LIVE</span>
+        </div>
+        <div id="log-list" class="log-list" aria-live="polite">
+          <div class="empty-logs">Waiting for activity…</div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>MineBot <span class="footer-separator">/</span> Private server monitor</span>
+        <span id="footer-connection">Local dashboard</span>
+      </footer>
+    </div>
+  </main>
+</body>
+</html>
