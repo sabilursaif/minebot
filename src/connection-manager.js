@@ -23,6 +23,8 @@ class ConnectionManager extends EventEmitter {
     this.retryTimer = null
     this.stopPromise = null
     this.shuttingDown = false
+    this.autoReconnectEnabled = true
+    this.manualReconnectPending = false
     this.hasConnected = false
     this.reconnectAttempts = 0
     this.totalReconnects = 0
@@ -30,6 +32,7 @@ class ConnectionManager extends EventEmitter {
 
     this.state = {
       status: 'disconnected',
+autoReconnectEnabled: true,
       username: config.bot.username,
       proxy: `${config.bot.host}:${config.bot.port}`,
       version: config.bot.version,
@@ -150,13 +153,16 @@ class ConnectionManager extends EventEmitter {
     this.statsTimer.unref?.()
   }
   connect() {
-    if (this.shuttingDown || this.bot) return
+    if (this.shuttingDown) return
+    this.autoReconnectEnabled = true
 
     if (this.retryTimer) {
       clearTimeout(this.retryTimer)
       this.retryTimer = null
-      this.statsTimer = null
     }
+
+    this.update({ autoReconnectEnabled: true })
+    if (this.bot) return
 
     const id = ++this.connectionId
 
@@ -298,14 +304,51 @@ class ConnectionManager extends EventEmitter {
         reason: message
       })
 
-      if (!this.shuttingDown) {
+      if (this.shuttingDown) return
+
+      if (this.manualReconnectPending) {
+        this.manualReconnectPending = false
+        this.connect()
+      } else if (this.autoReconnectEnabled) {
         this.scheduleReconnect()
       }
     })
   }
 
+  disconnect() {
+    if (this.shuttingDown) return false
+    this.autoReconnectEnabled = false
+    this.manualReconnectPending = false
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
+    this.update({ autoReconnectEnabled: false })
+    const bot = this.bot
+    if (!bot) {
+      this.clearStatsTimer()
+      this.update({ status: "disconnected", connectedAt: null, position: null, health: null, food: null, foodSaturation: null, dimension: null })
+      return true
+    }
+    this.update({ status: "disconnecting" })
+    this.log("info", "Manual disconnect requested")
+    try { bot.quit("Disconnected from dashboard"); return true }
+    catch (error) { this.log("error", "Manual disconnect failed", { error: error.message }); return false }
+  }
+
+  reconnect() {
+    if (this.shuttingDown) return false
+    this.autoReconnectEnabled = true
+    if (this.retryTimer) { clearTimeout(this.retryTimer); this.retryTimer = null }
+    this.update({ autoReconnectEnabled: true })
+    const bot = this.bot
+    if (!bot) { this.manualReconnectPending = false; this.connect(); return true }
+    this.manualReconnectPending = true
+    this.update({ status: "reconnecting" })
+    this.log("info", "Manual reconnect requested")
+    try { bot.quit("Reconnecting from dashboard"); return true }
+    catch (error) { this.manualReconnectPending = false; this.log("error", "Manual reconnect failed", { error: error.message }); return false }
+  }
+
   scheduleReconnect() {
-    if (this.shuttingDown || this.retryTimer) return
+    if (this.shuttingDown || !this.autoReconnectEnabled || this.retryTimer) return
 
     const { reconnectDelayMs, maxReconnectAttempts } = config.connection
 
@@ -347,6 +390,8 @@ class ConnectionManager extends EventEmitter {
     if (this.stopPromise) return this.stopPromise
 
     this.shuttingDown = true
+    this.autoReconnectEnabled = false
+    this.manualReconnectPending = false
     this.clearStatsTimer()
     this.stopPromise = (async () => {
       if (this.retryTimer) {

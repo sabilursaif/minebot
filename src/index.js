@@ -1,10 +1,15 @@
 'use strict'
 
 const ConnectionManager = require('./connection-manager')
+const createWebServer = require('./server')
+const ViaProxyManager = require('./viaproxy-manager')
 
 const manager = new ConnectionManager()
+const viaProxy = new ViaProxyManager()
+const web = createWebServer(manager)
 
 let shuttingDown = false
+let webStarted = false
 
 async function shutdown(signal) {
   if (shuttingDown) return
@@ -14,9 +19,17 @@ async function shutdown(signal) {
 
   try {
     await manager.stop()
-    process.exitCode = 0
+    await viaProxy.stop()
+
+    if (webStarted) {
+      await web.close()
+      webStarted = false
+    }
+
+    console.log('[SYSTEM] MineBot shutdown complete')
+    process.exitCode = ['SIGINT', 'SIGTERM'].includes(signal) ? 0 : 1
   } catch (error) {
-    console.error('Shutdown failed:', error)
+    console.error('[SYSTEM] Shutdown failed:', error)
     process.exitCode = 1
   }
 }
@@ -28,8 +41,31 @@ manager.on('status', status => {
   console.log('[STATUS]', JSON.stringify(status))
 })
 
-manager.on('log', entry => {
-  // Future dashboard and persistent logger integration.
+viaProxy.on("exit", ({ unexpected }) => {
+  if (unexpected && !shuttingDown) {
+    console.error("[SYSTEM] ViaProxy exited unexpectedly")
+    shutdown("VIAPROXY_FAILURE")
+  }
 })
 
-manager.connect()
+async function start() {
+  try {
+    await viaProxy.start()
+
+    const address = await web.listen()
+    webStarted = true
+
+    console.log(
+      `[HTTP] Listening on http://${address.address}:${address.port}`
+    )
+
+    if (!shuttingDown) {
+      manager.connect()
+    }
+  } catch (error) {
+    console.error('[SYSTEM] Startup failed:', error)
+    await shutdown('STARTUP_FAILURE')
+  }
+}
+
+start()

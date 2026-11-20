@@ -5,11 +5,14 @@
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/index.js"
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "password:setup": "node scripts/set-password.js"
   },
   "keywords": [],
   "type": "commonjs",
   "dependencies": {
-    "mineflayer": "github:PrismarineJS/mineflayer#5a252e6"
+    "express": "^5.3.0",
+    "mineflayer": "git+https://github.com/PrismarineJS/mineflayer.git#5a252e6",
+    "ws": "^8.23.0"
   }
 }
