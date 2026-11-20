@@ -50,14 +50,14 @@ viaProxy.on("exit", ({ unexpected }) => {
 
 async function start() {
   try {
-    await viaProxy.start()
-
     const address = await web.listen()
     webStarted = true
 
     console.log(
       `[HTTP] Listening on http://${address.address}:${address.port}`
     )
+
+    await viaProxy.start()
 
     if (!shuttingDown) {
       manager.connect()
