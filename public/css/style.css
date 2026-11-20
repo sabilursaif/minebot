@@ -588,3 +588,49 @@ button { color: inherit; }
   .control-actions { width: 100%; }
   .control-button { flex: 1; min-width: 0; }
 }
+
+/* Navigation controls */
+.navigate-form {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 9px;
+}
+
+.coordinate-input {
+  display: grid;
+  flex: 1 1 90px;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.coordinate-input input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  outline: none;
+  background: var(--panel-raised);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.coordinate-input input:focus {
+  border-color: var(--accent-bright);
+}
+
+.control-eat { color: #e9b96d; }
+.control-navigate { color: var(--green); border-color: rgba(91,214,160,.25); }
+.control-stop { color: var(--red); border-color: rgba(255,114,126,.22); }
+
+@media (max-width: 620px) {
+  .navigate-form { width: 100%; }
+  .coordinate-input { flex: 1 1 25%; }
+  .navigate-form .control-button { flex: 1 1 120px; }
+}

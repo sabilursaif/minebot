@@ -2,6 +2,7 @@
 
 const EventEmitter = require('node:events')
 const mineflayer = require('mineflayer')
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const config = require('./config')
 
 function formatReason(reason) {
@@ -29,6 +30,9 @@ class ConnectionManager extends EventEmitter {
     this.reconnectAttempts = 0
     this.totalReconnects = 0
     this.connectionId = 0
+    this.eatingBot = null
+    this.navigationId = 0
+    this.navigationGoal = null
 
     this.state = {
       status: 'disconnected',
@@ -57,6 +61,7 @@ autoReconnectEnabled: true,
 
     return {
       ...this.state,
+      navigationTarget: this.navigationGoal,
       uptimeSeconds: connectedAt
         ? Math.floor((Date.now() - Date.parse(connectedAt)) / 1000)
         : 0
@@ -65,6 +70,7 @@ autoReconnectEnabled: true,
 
   update(patch) {
     this.state = { ...this.state, ...patch }
+      navigationTarget: this.navigationGoal,
     this.emit('status', this.getSnapshot())
   }
 
@@ -113,17 +119,139 @@ autoReconnectEnabled: true,
     }
   }
 
-  syncStats(bot) {
-    const stats = this.readStats(bot)
+ syncStats(bot) {
+   const stats = this.readStats(bot)
+ 
+   const changed = Object.entries(stats).some(
+     ([key, value]) =>
+       JSON.stringify(this.state[key]) !== JSON.stringify(value)
+   )
+ 
+   if (changed) {
+     this.update(stats)
+   }
+ 
+   void this.maybeEat(bot)
+ }
 
-    const changed = Object.entries(stats).some(
-      ([key, value]) =>
-        JSON.stringify(this.state[key]) !== JSON.stringify(value)
+async maybeEat(bot, force = false) {
+  if (
+  this.bot !== bot ||
+  this.shuttingDown ||
+  this.state.status !== 'online'
+) {
+  return { accepted: false, error: 'Bot is not online' }
+}
+
+if (this.eatingBot === bot) {
+  return { accepted: false, error: 'Bot is already eating' }
+}
+
+  const health = bot.health
+  const hunger = bot.food
+
+  // Eat when either threshold is reached.
+  if (!force && health >= 16 && hunger >= 10) return
+
+  try {
+    const foods = bot.registry?.foodsArray
+
+    if (!Array.isArray(foods)) {
+  return { accepted: false, error: 'Food registry unavailable' }
+}
+
+    const foodById = new Map(
+      foods.map(food => [food.id, food])
     )
 
-    if (changed) {
-      this.update(stats)
+    // Avoid foods with harmful effects or special behavior.
+    const bannedFood = new Set([
+      'rotten_flesh',
+      'spider_eye',
+      'poisonous_potato',
+      'pufferfish',
+      'chorus_fruit',
+      'suspicious_stew',
+      'ominous_bottle',
+      'cake'
+    ])
+
+    let choices = bot.inventory.items()
+      .filter(item => item && item.count > 0)
+      .map(item => ({
+        item,
+        food: foodById.get(item.type)
+      }))
+      .filter(({ food }) =>
+        food && !bannedFood.has(food.name)
+      )
+
+    // At full hunger, only golden apples can be eaten.
+    if (hunger >= 20) {
+      choices = choices.filter(({ food }) =>
+        food.name === 'golden_apple' ||
+        food.name === 'enchanted_golden_apple'
+      )
     }
+
+    if (choices.length === 0) {
+  return { accepted: false, error: 'No suitable food available' }
+}
+
+    // Prefer food with the highest overall nutritional value.
+    choices.sort((a, b) =>
+      (b.food.effectiveQuality ?? 0) -
+      (a.food.effectiveQuality ?? 0)
+    )
+
+    const selected = choices[0]
+
+    this.eatingBot = bot
+
+    this.log('info', 'Automatic eating started', {
+      food: selected.food.name,
+      health,
+      hunger
+    })
+
+    await bot.equip(selected.item, 'hand')
+
+    if (this.bot !== bot || this.shuttingDown) return
+
+    await bot.consume()
+
+    if (this.bot !== bot || this.shuttingDown) return
+
+    this.log('info', 'Automatic eating completed', {
+      food: selected.food.name,
+      health: bot.health,
+      hunger: bot.food
+    })
+
+    this.syncStats(bot)
+    return { accepted: true, food: selected.food.name }
+  } catch (error) {
+    if (this.bot === bot && !this.shuttingDown) {
+      this.log('warn', 'Automatic eating failed', {
+        error: error.message
+      })
+    }
+    return { accepted: false, error: error.message }
+  } finally {
+    if (this.eatingBot === bot) {
+      this.eatingBot = null
+    }
+  }
+}
+
+  async eat() {
+    const bot = this.bot
+
+    if (!bot || this.state.status !== "online") {
+      return { accepted: false, error: "Bot is not online" }
+    }
+
+    return this.maybeEat(bot, true)
   }
 
   clearStatsTimer() {
@@ -202,6 +330,7 @@ autoReconnectEnabled: true,
     }
 
     this.bot = bot
+    bot.loadPlugin(pathfinder)
 
     const isCurrent = () =>
       this.bot === bot && this.connectionId === id
@@ -214,24 +343,31 @@ autoReconnectEnabled: true,
     })
 
     bot.on('spawn', () => {
-      if (!isCurrent()) return
+      if (isCurrent()) {
+        const movements = new Movements(bot)
+        movements.canDig = false
+        movements.allow1by1towers = false
+        movements.allowParkour = false
+        movements.canOpenDoors = false
+        bot.pathfinder.setMovements(movements)
 
-      this.hasConnected = true
-      this.reconnectAttempts = 0
+        this.hasConnected = true
+        this.reconnectAttempts = 0
 
-      this.update({
-        status: 'online',
-        connectedAt: this.state.connectedAt || new Date().toISOString(),
-        reconnectAttempts: 0,
-        ...this.readStats(bot)
-      })
+        this.update({
+          status: 'online',
+          connectedAt: this.state.connectedAt || new Date().toISOString(),
+          reconnectAttempts: 0,
+          ...this.readStats(bot)
+        })
 
-      this.startStatsPolling(bot, id)
+        this.startStatsPolling(bot, id)
 
-      this.log('info', 'Bot spawned successfully', {
-        position: this.state.position,
-        dimension: this.state.dimension
-      })
+        this.log('info', 'Bot spawned successfully', {
+          position: this.state.position,
+          dimension: this.state.dimension
+        })
+      }
     })
 
     bot.on('health', () => {
@@ -313,6 +449,78 @@ autoReconnectEnabled: true,
         this.scheduleReconnect()
       }
     })
+  }
+
+    goTo(x, y, z) {
+    const bot = this.bot
+
+    if (!bot || this.state.status !== 'online' || !bot.pathfinder) {
+      return { accepted: false, error: 'Bot is not online' }
+    }
+
+    if (
+      ![x, y, z].every(Number.isFinite) ||
+      Math.abs(x) > 30000000 ||
+      Math.abs(y) > 30000000 ||
+      Math.abs(z) > 30000000
+    ) {
+      return { accepted: false, error: 'Invalid coordinates' }
+    }
+
+    const target = {
+      x: Math.floor(x),
+      y: Math.floor(y),
+      z: Math.floor(z)
+    }
+
+    if (this.navigationGoal) this.stopNavigation()
+
+    const id = ++this.navigationId
+    this.navigationGoal = target
+    this.update({})
+
+    this.log('info', 'Navigation started', { target })
+
+    bot.pathfinder.goto(
+      new goals.GoalNear(target.x, target.y, target.z, 1)
+    ).then(() => {
+      if (this.bot !== bot || this.navigationId !== id) return
+
+      this.navigationGoal = null
+      this.update({})
+      this.log('info', 'Navigation completed', {
+        target,
+        position: this.readStats(bot).position
+      })
+    }).catch(error => {
+      if (this.bot !== bot || this.navigationId !== id) return
+
+      this.navigationGoal = null
+      this.update({})
+      this.log('warn', 'Navigation failed', {
+        target,
+        error: error.message
+      })
+    })
+
+    return { accepted: true, target }
+  }
+
+  stopNavigation() {
+    if (!this.navigationGoal) {
+      return { accepted: false, error: 'No active navigation' }
+    }
+
+    const target = this.navigationGoal
+
+    this.navigationId++
+    this.navigationGoal = null
+    this.update({})
+    this.bot?.pathfinder?.setGoal(null)
+
+    this.log('info', 'Navigation stopped', { target })
+
+    return { accepted: true, target }
   }
 
   disconnect() {

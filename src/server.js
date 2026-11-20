@@ -332,6 +332,26 @@ const port = Number(
     response.status(accepted ? 202 : 409).json({ accepted, status: manager.getSnapshot() })
   })
 
+  app.post("/api/control/eat", requireSameOrigin, requireAuth, async (request, response) => {
+    const result = await manager.eat()
+    response.status(result.accepted ? 200 : 409).json({
+      ...result,
+      status: manager.getSnapshot()
+    })
+  })
+
+  app.post("/api/control/navigate", requireSameOrigin, requireAuth, (request, response) => {
+    const { x, y, z } = request.body || {}
+    const result = manager.goTo(x, y, z)
+    const code = result.accepted ? 202 : result.error === "Invalid coordinates" ? 400 : 409
+    response.status(code).json({ ...result, status: manager.getSnapshot() })
+  })
+
+  app.post("/api/control/navigate/stop", requireSameOrigin, requireAuth, (request, response) => {
+    const result = manager.stopNavigation()
+    response.status(result.accepted ? 202 : 409).json({ ...result, status: manager.getSnapshot() })
+  })
+
   app.get('/api/status', requireAuth, (request, response) => {
     response.json(manager.getSnapshot())
   })

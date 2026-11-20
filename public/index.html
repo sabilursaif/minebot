@@ -114,7 +114,21 @@
           <button id="connect-button" class="control-button control-connect" type="button">Connect</button>
           <button id="disconnect-button" class="control-button control-disconnect" type="button">Disconnect</button>
           <button id="reconnect-button" class="control-button control-reconnect" type="button">Reconnect</button>
+          <button id="eat-button" class="control-button control-eat" type="button" disabled>Eat</button>
         </div>
+        <form id="navigate-form" class="navigate-form">
+          <label class="coordinate-input">X
+            <input id="navigate-x" name="x" type="number" step="any" required placeholder="X coordinate">
+          </label>
+          <label class="coordinate-input">Y
+            <input id="navigate-y" name="y" type="number" step="any" required placeholder="Y coordinate">
+          </label>
+          <label class="coordinate-input">Z
+            <input id="navigate-z" name="z" type="number" step="any" required placeholder="Z coordinate">
+          </label>
+          <button id="navigate-button" class="control-button control-navigate" type="submit" disabled>Navigate</button>
+          <button id="stop-navigation-button" class="control-button control-stop" type="button" disabled>Stop navigation</button>
+        </form>
         <p id="control-message" class="control-message" role="status" hidden></p>
       </section>
 

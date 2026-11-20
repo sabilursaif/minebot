@@ -412,6 +412,10 @@ function updateControlButtons(status) {
   $("#connect-button").disabled = busy || ["online", "dead"].includes(state)
   $("#disconnect-button").disabled = busy || ["disconnected", "stopped", "failed"].includes(state)
   $("#reconnect-button").disabled = busy || ["stopped"].includes(state)
+  $("#eat-button").disabled = state !== "online" || busy
+  $("#navigate-button").disabled = state !== "online" || busy
+  $("#stop-navigation-button").disabled =
+    state !== "online" || !status.navigationTarget
 }
 
 async function controlBot(action) {
@@ -419,7 +423,7 @@ async function controlBot(action) {
   message.hidden = false
   message.textContent = `${action} requested...`
 
-  for (const id of ["#connect-button", "#disconnect-button", "#reconnect-button"]) {
+  for (const id of ["#connect-button", "#disconnect-button", "#reconnect-button", "#eat-button"]) {
     $(id).disabled = true
   }
 
@@ -441,6 +445,54 @@ $("#disconnect-button").addEventListener("click", () => {
   }
 })
 $("#reconnect-button").addEventListener("click", () => controlBot("reconnect"))
+$("#eat-button").addEventListener("click", () => controlBot("eat"))
+
+async function submitNavigation(url, body, successMessage) {
+  const message = $("#control-message")
+  message.hidden = false
+  message.textContent = "Processing navigation command..."
+
+  $("#navigate-button").disabled = true
+  $("#stop-navigation-button").disabled = true
+
+  try {
+    const result = await request(url, {
+      method: "POST",
+      ...(body ? { body: JSON.stringify(body) } : {})
+    })
+
+    if (result.status) renderStatus(result.status)
+    message.textContent = successMessage(result)
+  } catch (error) {
+    message.textContent = error.message
+  } finally {
+    if (currentStatus) updateControlButtons(currentStatus)
+  }
+}
+
+$("#navigate-form").addEventListener("submit", event => {
+  event.preventDefault()
+
+  const x = $("#navigate-x").valueAsNumber
+  const y = $("#navigate-y").valueAsNumber
+  const z = $("#navigate-z").valueAsNumber
+
+  if (![x, y, z].every(Number.isFinite)) return
+
+  submitNavigation(
+    "/api/control/navigate",
+    { x, y, z },
+    result => `Navigation started: ${result.target.x}, ${result.target.y}, ${result.target.z}`
+  )
+})
+
+$("#stop-navigation-button").addEventListener("click", () => {
+  submitNavigation(
+    "/api/control/navigate/stop",
+    null,
+    () => "Navigation stop requested."
+  )
+})
 
 async function initialize() {
   try {

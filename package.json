@@ -13,6 +13,7 @@
   "dependencies": {
     "express": "^5.3.0",
     "mineflayer": "git+https://github.com/PrismarineJS/mineflayer.git#5a252e6",
+    "mineflayer-pathfinder": "2.4.5",
     "ws": "^8.23.0"
   }
 }
